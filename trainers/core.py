@@ -4,8 +4,8 @@ from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from typing import Callable
+from graph import graph_loss
 import torch
-import matplotlib.pyplot as plt
 
 @dataclass
 class BaseTrainer(ABC):
@@ -32,22 +32,33 @@ class Trainer(BaseTrainer):
     train_loader: DataLoader
     test_loader: DataLoader
 
-    def fit(self, epochs: int) -> None:
+    def fit(self, epochs: int, record_loss_batch: int=10, graph: bool=False) -> None:
         """
         Train the model and optionally plot loss in real-time.
         
         Args:
             epochs (int): Number of training epochs.
         """
+        train_losses = []
+        test_losses = []
+
         print("Training the model...")
         for epoch in range(epochs):
             print(f'============ Epoch {epoch + 1} ============')
-            self.train_loop()
-            self.test_loop()
+            train_losses += self.train_loop(record_loss_batch)
+            test_losses += self.test_loop(record_loss_batch)
+        
+        if graph:
+            losses = {
+                'Train Loss' : train_losses,
+                'Test Loss' : test_losses
+            }
+            graph_loss(losses)
     
-    def train_loop(self):
+    def train_loop(self, record_loss_batch: int) -> list[float]:
         self.model.train()
         
+        losses = []
         for batch, (inputs, labels) in enumerate(self.train_loader):
             # Forward pass
             predict = self.model(inputs)
@@ -58,19 +69,29 @@ class Trainer(BaseTrainer):
             loss.backward()
             self.optimizer.step()
 
-            if batch % 100 == 0:
+            if batch % record_loss_batch == 0:
+                losses.append(loss.item())
                 index = (batch + 1) * self.train_loader.batch_size
                 print(f'    loss: {loss.item(): 5f} ----- {index: 6d} / {len(self.train_loader.dataset)}')
+        
+        return losses
     
-    def test_loop(self) -> None:
+    def test_loop(self, record_loss_batch: int) -> list[float]:
         self.model.eval()
 
+        losses = []
         test_loss = 0
         with torch.no_grad():
             for batch, (inputs, labels) in enumerate(self.test_loader):
                 predict = self.model(inputs)
-                test_loss += self.loss_fn(predict, labels).item()
+                loss = self.loss_fn(predict, labels).item()
+                test_loss += loss
+
+                if batch % record_loss_batch == 0:
+                    losses.append(loss)
+
         print(f'Test Loss: {test_loss / len(self.test_loader.dataset)}')
+        return losses
 
 
 if __name__ == '__main__':
@@ -131,4 +152,4 @@ if __name__ == '__main__':
         test_loader=test_loader
     )
 
-    trainer.fit(epochs=5)
+    trainer.fit(epochs=5, graph=True)
