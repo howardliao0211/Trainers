@@ -6,5 +6,5 @@ setup(
    description='ML trainers package.',
    author='Howard Liao',
    packages=['trainers'],
-   install_requires=['torch'],
+   install_requires=['torch', 'matplotlib'],
 )
