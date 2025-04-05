@@ -4,7 +4,8 @@ from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from typing import Callable
-from graph import graph_loss
+from .graph import graph_loss
+from collections import defaultdict
 import torch
 
 @dataclass
@@ -12,10 +13,48 @@ class BaseTrainer(ABC):
     """
     Base class for all trainers. This class defines the interface for training and evaluation methods.
     """
-    @abstractmethod
-    def fit(self, epochs: int, graph: bool = False) -> None:
+
+    model: nn.Module
+    optimizer: Optimizer
+    loss_fn: Callable
+    train_loader: DataLoader
+    test_loader: DataLoader
+
+    def fit(self, epochs: int, graph: bool=False) -> None:
         """
-        Train the model on the given dataset.
+        Train the model and optionally plot loss in real-time.
+        
+        Args:
+            epochs (int): Number of training epochs.
+        """
+        losses = defaultdict(list)
+
+        print("Training the model...")
+        for epoch in range(epochs):
+            print(f'============ Epoch {epoch + 1} ============')
+            
+            if self.train_loop is not None:
+                train_losses = self.train_loop()
+                losses['Train Loss'].extend(train_losses)
+            
+            if self.test_loop is not None:
+                test_losses = self.test_loop()
+                losses['Test Loss'].extend(test_losses)
+        
+        if graph:
+            graph_loss(losses)
+
+    @abstractmethod
+    def train_loop(self) -> list[float]:
+        """
+        Perform one training loop over the dataset.
+        """
+        pass
+
+    @abstractmethod
+    def test_loop(self) -> list[float]:
+        """
+        Perform one evaluation loop over the dataset.
         """
         pass
 
@@ -26,36 +65,9 @@ class Trainer(BaseTrainer):
     Concrete implementation of the BaseTrainer class. This class provides the actual training and evaluation logic.
     """
 
-    model: nn.Module
-    optimizer: Optimizer
-    loss_fn: Callable
-    train_loader: DataLoader
-    test_loader: DataLoader
+    record_loss_batch: int = 10
 
-    def fit(self, epochs: int, record_loss_batch: int=10, graph: bool=False) -> None:
-        """
-        Train the model and optionally plot loss in real-time.
-        
-        Args:
-            epochs (int): Number of training epochs.
-        """
-        train_losses = []
-        test_losses = []
-
-        print("Training the model...")
-        for epoch in range(epochs):
-            print(f'============ Epoch {epoch + 1} ============')
-            train_losses += self.train_loop(record_loss_batch)
-            test_losses += self.test_loop(record_loss_batch)
-        
-        if graph:
-            losses = {
-                'Train Loss' : train_losses,
-                'Test Loss' : test_losses
-            }
-            graph_loss(losses)
-    
-    def train_loop(self, record_loss_batch: int) -> list[float]:
+    def train_loop(self) -> list[float]:
         self.model.train()
         
         losses = []
@@ -69,14 +81,14 @@ class Trainer(BaseTrainer):
             loss.backward()
             self.optimizer.step()
 
-            if batch % record_loss_batch == 0:
+            if batch % self.record_loss_batch == 0:
                 losses.append(loss.item())
                 index = (batch + 1) * self.train_loader.batch_size
                 print(f'    loss: {loss.item(): 5f} ----- {index: 6d} / {len(self.train_loader.dataset)}')
         
         return losses
     
-    def test_loop(self, record_loss_batch: int) -> list[float]:
+    def test_loop(self) -> list[float]:
         self.model.eval()
 
         losses = []
@@ -87,7 +99,7 @@ class Trainer(BaseTrainer):
                 loss = self.loss_fn(predict, labels).item()
                 test_loss += loss
 
-                if batch % record_loss_batch == 0:
+                if batch % self.record_loss_batch == 0:
                     losses.append(loss)
 
         print(f'Test Loss: {test_loss / len(self.test_loader.dataset)}')
@@ -113,32 +125,16 @@ if __name__ == '__main__':
         def forward(self, x):
             return self.net(x)
 
-    train_dataset = datasets.FashionMNIST(
-        root='./data',
-        train=True,
-        download=True,
-        transform=transforms.ToTensor()
-    )
-
-    test_dataset = datasets.FashionMNIST(
-        root='./data',
-        train=False,
-        download=True,
-        transform=transforms.ToTensor()
-    )
-
     train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=64,
+        datasets.FakeData(size=1000, transform=transforms.ToTensor()),
+        batch_size=32,
         shuffle=True,
-        num_workers=2
     )
 
-    test_loader = DataLoader(   
-        dataset=test_dataset,
-        batch_size=64,
+    test_loader = DataLoader(
+        datasets.FakeData(size=200, transform=transforms.ToTensor()),
+        batch_size=32,
         shuffle=False,
-        num_workers=2
     )
 
     model = LinearModel(class_num=10)
