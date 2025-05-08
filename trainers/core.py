@@ -4,7 +4,7 @@ from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from typing import Callable
-from .graph import graph_loss
+from .utils import graph_loss
 from collections import defaultdict
 import torch
 import pathlib
@@ -24,7 +24,7 @@ class BaseTrainer(ABC):
     test_loader: DataLoader
     device: torch.device = torch.device('cpu')
 
-    def fit(self, epochs: int, graph: bool=False, save_check_point: bool=True) -> None:
+    def fit(self, epochs: int, trained_epochs: int=0, graph: bool=False, save_check_point: bool=False) -> None:
         """
         Train the model and optionally plot loss in real-time.
         
@@ -35,7 +35,9 @@ class BaseTrainer(ABC):
 
         print("Training the model...")
         for epoch in range(epochs):
-            print(f'============ Epoch {epoch + 1} ============')
+            epoch_idx = epoch + trained_epochs + 1
+
+            print(f'============ Epoch {epoch_idx} ============')
             
             if self.train_loop is not None:
                 train_loss = self.train_loop()
@@ -53,15 +55,10 @@ class BaseTrainer(ABC):
                 checkpoint_dir.mkdir(parents=True, exist_ok=True)
                 
                 # Create Checkpoint Path
-                checkpoint_name = f'{self.name}_epoch{epoch+1}_{date}_{time}.pt'
+                checkpoint_name = f'{self.name}_epoch{epoch_idx}_{date}_{time}.pt'
                 checkpoint_path = str(checkpoint_dir/checkpoint_name)
-                torch.save({
-                    'epoch': epoch + 1,
-                    'train_loss': train_loss,
-                    'test_loss': test_loss,
-                    'model_state_dict': self.model.state_dict(),
-                    'optimizer_state_dict': self.optimizer.state_dict(),
-                }, checkpoint_path)
+                checkpoint_dict = self.get_checkpoint_dict(epoch_idx, train_loss, test_loss)
+                torch.save(checkpoint_dict, checkpoint_path)
 
         if graph:
             graph_loss(losses)
@@ -79,6 +76,19 @@ class BaseTrainer(ABC):
         Perform one evaluation loop over the dataset.
         """
         pass
+
+    def get_checkpoint_dict(self, epoch, train_loss, test_loss) -> dict:
+        """
+        Get checkpoint.
+        """
+        checkpoint_dict = {
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'test_loss': test_loss,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+        }
+        return checkpoint_dict
 
 
 @dataclass
