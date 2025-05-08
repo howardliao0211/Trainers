@@ -1,5 +1,7 @@
+from typing import Any
+import torch
 import matplotlib.pyplot as plt
-from dataclasses import dataclass
+import pathlib
 
 def graph_loss(result: dict[str, list[float]], x_axis: str='epochs', y_axis: str='Loss') -> None:
     plt.figure()
@@ -14,6 +16,11 @@ def graph_loss(result: dict[str, list[float]], x_axis: str='epochs', y_axis: str
     plt.legend()
     
     plt.show()
+
+def load_checkpoint(checkpoint_path: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer, device: torch.device):
+    checkpoint: dict[str, Any] = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
 if __name__ == '__main__':
     import torch
