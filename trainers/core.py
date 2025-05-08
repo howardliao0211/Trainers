@@ -7,6 +7,8 @@ from typing import Callable
 from .graph import graph_loss
 from collections import defaultdict
 import torch
+import pathlib
+import datetime
 
 @dataclass
 class BaseTrainer(ABC):
@@ -14,13 +16,15 @@ class BaseTrainer(ABC):
     Base class for all trainers. This class defines the interface for training and evaluation methods.
     """
 
+    name: str
     model: nn.Module
     optimizer: Optimizer
     loss_fn: Callable
     train_loader: DataLoader
     test_loader: DataLoader
+    device: torch.device = torch.device('cpu')
 
-    def fit(self, epochs: int, graph: bool=False) -> None:
+    def fit(self, epochs: int, graph: bool=False, save_check_point: bool=True) -> None:
         """
         Train the model and optionally plot loss in real-time.
         
@@ -34,25 +38,43 @@ class BaseTrainer(ABC):
             print(f'============ Epoch {epoch + 1} ============')
             
             if self.train_loop is not None:
-                train_losses = self.train_loop()
-                losses['Train Loss'].extend(train_losses)
+                train_loss = self.train_loop()
+                losses['Train Loss'].append(train_loss)
             
             if self.test_loop is not None:
-                test_losses = self.test_loop()
-                losses['Test Loss'].extend(test_losses)
-        
+                test_loss = self.test_loop()
+                losses['Test Loss'].append(test_loss)
+            
+            if save_check_point:
+                # Create Checkpoint Directory
+                date = datetime.datetime.today().strftime("%Y%m%d")
+                time = datetime.datetime.now().strftime("%H%M%S")
+                checkpoint_dir = pathlib.Path(f'Checkpoints') / self.name / date
+                checkpoint_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Create Checkpoint Path
+                checkpoint_name = f'{self.name}_epoch{epoch+1}_{date}_{time}.pt'
+                checkpoint_path = str(checkpoint_dir/checkpoint_name)
+                torch.save({
+                    'epoch': epoch + 1,
+                    'train_loss': train_loss,
+                    'test_loss': test_loss,
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                }, checkpoint_path)
+
         if graph:
             graph_loss(losses)
 
     @abstractmethod
-    def train_loop(self) -> list[float]:
+    def train_loop(self) -> float:
         """
         Perform one training loop over the dataset.
         """
         pass
 
     @abstractmethod
-    def test_loop(self) -> list[float]:
+    def test_loop(self) -> float:
         """
         Perform one evaluation loop over the dataset.
         """
@@ -70,8 +92,12 @@ class Trainer(BaseTrainer):
     def train_loop(self) -> list[float]:
         self.model.train()
         
-        losses = []
+        train_loss = 0.0
+
         for batch, (inputs, labels) in enumerate(self.train_loader):
+            
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
+            
             # Forward pass
             predict = self.model(inputs)
             loss = self.loss_fn(predict, labels)
@@ -82,70 +108,26 @@ class Trainer(BaseTrainer):
             self.optimizer.step()
 
             if batch % self.record_loss_batch == 0:
-                losses.append(loss.item())
+                train_loss += loss.item()
                 index = (batch + 1) * self.train_loader.batch_size
                 print(f'    loss: {loss.item(): 5f} ----- {index: 6d} / {len(self.train_loader.dataset)}')
         
-        return losses
+        train_loss /= len(self.train_loader.dataset)
+        return train_loss
     
-    def test_loop(self) -> list[float]:
+    def test_loop(self) -> float:
         self.model.eval()
 
-        losses = []
-        test_loss = 0
+        test_loss = 0.0
         with torch.no_grad():
             for batch, (inputs, labels) in enumerate(self.test_loader):
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                
                 predict = self.model(inputs)
                 loss = self.loss_fn(predict, labels).item()
                 test_loss += loss
 
-                if batch % self.record_loss_batch == 0:
-                    losses.append(loss)
+        test_loss /= len(self.test_loader.dataset)
+        print(f'Test Loss: {test_loss}')
+        return test_loss
 
-        print(f'Test Loss: {test_loss / len(self.test_loader.dataset)}')
-        return losses
-
-
-if __name__ == '__main__':
-    from torchvision import datasets, transforms
-    from torch.optim import SGD
-
-    class LinearModel(nn.Module):
-        def __init__(self, class_num: int):
-            super(LinearModel, self).__init__()
-            self.net = nn.Sequential(
-                nn.Flatten(),
-                nn.LazyLinear(128),
-                nn.ReLU(),
-                nn.LazyLinear(64),
-                nn.ReLU(),
-                nn.LazyLinear(class_num),
-            )
-    
-        def forward(self, x):
-            return self.net(x)
-
-    train_loader = DataLoader(
-        datasets.FakeData(size=1000, transform=transforms.ToTensor()),
-        batch_size=32,
-        shuffle=True,
-    )
-
-    test_loader = DataLoader(
-        datasets.FakeData(size=200, transform=transforms.ToTensor()),
-        batch_size=32,
-        shuffle=False,
-    )
-
-    model = LinearModel(class_num=10)
-    optimizer = SGD(model.parameters(), lr=0.01)
-    loss_fn = nn.CrossEntropyLoss()
-    trainer = Trainer(
-        model=model,
-        optimizer=optimizer,
-        loss_fn=loss_fn,
-        train_loader=train_loader,
-        test_loader=test_loader
-    )
-
-    trainer.fit(epochs=5, graph=True)

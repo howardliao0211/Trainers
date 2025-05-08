@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
 
-def graph_loss(result: dict[str, list[float]], x_axis: str='Batch', y_axis: str='Loss') -> None:
+def graph_loss(result: dict[str, list[float]], x_axis: str='epochs', y_axis: str='Loss') -> None:
     plt.figure()
     
     for name, data in result.items():
