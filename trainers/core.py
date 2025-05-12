@@ -37,7 +37,7 @@ class BaseTrainer(ABC):
         for epoch in range(epochs):
             epoch_idx = epoch + trained_epochs + 1
 
-            print(f'============ Epoch {epoch_idx} ============')
+            print(f'============ Epoch {epoch_idx}/{epochs + trained_epochs} ============')
             
             if self.train_loop is not None:
                 train_loss = self.train_loop()

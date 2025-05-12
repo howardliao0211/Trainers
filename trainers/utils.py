@@ -17,10 +17,24 @@ def graph_loss(result: dict[str, list[float]], x_axis: str='Epochs', y_axis: str
     
     plt.show()
 
-def load_checkpoint(checkpoint_path: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer, device: torch.device):
+def load_checkpoint(checkpoint_path: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer, device: torch.device) -> dict:
+    print(f'Load Checkpoint: {checkpoint_path}')
+
     checkpoint: dict[str, Any] = torch.load(checkpoint_path, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    check = {}
+
+    for k, v in checkpoint.items():
+        if k == 'model_state_dict':
+            model.load_state_dict(checkpoint['model_state_dict'])
+
+        elif k == 'optimizer_state_dict':
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        else:
+            print(f'{k}: {v}')
+            check[k] = v
+        
+    return check
 
 if __name__ == '__main__':
     import torch
