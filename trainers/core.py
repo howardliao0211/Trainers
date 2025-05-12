@@ -31,7 +31,7 @@ class BaseTrainer(ABC):
         Args:
             epochs (int): Number of training epochs.
         """
-        losses = defaultdict(list)
+        statistic = defaultdict(list)
 
         print("Training the model...")
         for epoch in range(epochs):
@@ -40,12 +40,14 @@ class BaseTrainer(ABC):
             print(f'============ Epoch {epoch_idx}/{epochs + trained_epochs} ============')
             
             if self.train_loop is not None:
-                train_loss = self.train_loop()
-                losses['Train Loss'].append(train_loss)
+                train_state = self.train_loop()
+                for state, value in train_state.items():
+                    statistic[state].append(value)
             
             if self.test_loop is not None:
-                test_loss = self.test_loop()
-                losses['Test Loss'].append(test_loss)
+                test_state = self.test_loop()
+                for state, value in test_state.items():
+                    statistic[state].append(value)
             
             if save_check_point:
                 # Create Checkpoint Directory
@@ -57,37 +59,36 @@ class BaseTrainer(ABC):
                 # Create Checkpoint Path
                 checkpoint_name = f'{self.name}_epoch{epoch_idx}_{date}_{time}.pt'
                 checkpoint_path = str(checkpoint_dir/checkpoint_name)
-                checkpoint_dict = self.get_checkpoint_dict(epoch_idx, train_loss, test_loss)
+                checkpoint_dict = self.get_checkpoint_dict(epoch_idx, statistic)
                 torch.save(checkpoint_dict, checkpoint_path)
 
         if graph:
-            graph_loss(losses)
+            graph_loss(statistic)
 
     @abstractmethod
-    def train_loop(self) -> float:
+    def train_loop(self) -> dict:
         """
         Perform one training loop over the dataset.
         """
         pass
 
     @abstractmethod
-    def test_loop(self) -> float:
+    def test_loop(self) -> dict:
         """
         Perform one evaluation loop over the dataset.
         """
         pass
 
-    def get_checkpoint_dict(self, epoch, train_loss, test_loss) -> dict:
+    def get_checkpoint_dict(self, epoch: int, statistic: dict) -> dict:
         """
         Get checkpoint.
         """
         checkpoint_dict = {
             'epoch': epoch,
-            'train_loss': train_loss,
-            'test_loss': test_loss,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
         }
+        checkpoint_dict.update(statistic)
         return checkpoint_dict
 
 
@@ -123,7 +124,7 @@ class Trainer(BaseTrainer):
                 print(f'    loss: {loss.item(): 5f} ----- {index: 6d} / {len(self.train_loader.dataset)}')
         
         train_loss /= len(self.train_loader.dataset)
-        return train_loss
+        return {'Train Loss': train_loss}
     
     def test_loop(self) -> float:
         self.model.eval()
@@ -139,5 +140,5 @@ class Trainer(BaseTrainer):
 
         test_loss /= len(self.test_loader.dataset)
         print(f'Test Loss: {test_loss}')
-        return test_loss
+        return {'Test Loss': test_loss}
 

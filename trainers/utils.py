@@ -3,7 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 import pathlib
 
-def graph_loss(result: dict[str, list[float]], x_axis: str='Epochs', y_axis: str='Loss') -> None:
+def graph_loss(result: dict[str, list[float]], x_axis: str='Epochs', y_axis: str='Statistic') -> None:
     plt.figure()
     
     for name, data in result.items():
