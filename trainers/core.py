@@ -50,6 +50,11 @@ class BaseTrainer(ABC):
                     statistic[state].append(value)
             
             if save_check_point:
+                # Get current epoch's statistic
+                current_statistic = {}
+                current_statistic.update(train_state)
+                current_statistic.update(test_state)
+
                 # Create Checkpoint Directory
                 date = datetime.datetime.today().strftime("%Y%m%d")
                 time = datetime.datetime.now().strftime("%H%M%S")
@@ -59,7 +64,7 @@ class BaseTrainer(ABC):
                 # Create Checkpoint Path
                 checkpoint_name = f'{self.name}_epoch{epoch_idx}_{date}_{time}.pt'
                 checkpoint_path = str(checkpoint_dir/checkpoint_name)
-                checkpoint_dict = self.get_checkpoint_dict(epoch_idx, statistic)
+                checkpoint_dict = self.get_checkpoint_dict(self.model, self.optimizer, epoch_idx, current_statistic)
                 torch.save(checkpoint_dict, checkpoint_path)
 
         if graph:
@@ -79,14 +84,14 @@ class BaseTrainer(ABC):
         """
         pass
 
-    def get_checkpoint_dict(self, epoch: int, statistic: dict) -> dict:
+    def get_checkpoint_dict(self, model: nn.Module, optimizer: Optimizer, epoch: int, statistic: dict) -> dict:
         """
         Get checkpoint.
         """
         checkpoint_dict = {
             'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
         }
         checkpoint_dict.update(statistic)
         return checkpoint_dict
