@@ -1,7 +1,9 @@
 from typing import Any
+from collections import defaultdict
 import torch
 import matplotlib.pyplot as plt
 import pathlib
+import numpy as np
 
 def graph_loss(result: dict[str, list[float]], x_axis: str='Epochs', y_axis: str='Statistic') -> None:
     plt.figure()
@@ -36,17 +38,36 @@ def load_checkpoint(checkpoint_path: str, model: torch.nn.Module, optimizer: tor
         
     return check
 
-if __name__ == '__main__':
-    import torch
+def graph_from_checkpoint(checkpoint_dir: str, x_axis: str='Epochs', y_axis: str='Statistic') -> None:
+    checkpoint_path = pathlib.Path(checkpoint_dir)
+
+    statistics = defaultdict(list)
+    for path in checkpoint_path.rglob('*/*.pt'):
+        checkpoint = torch.load(path, map_location=torch.device('cpu'))
+        for k, v in checkpoint.items():
+            if 'state_dict' in k:
+                continue
+            statistics[k].append(v)
     
-    loss1 = torch.rand((64,))
-    loss2 = torch.rand((128,))
-    loss3 = torch.rand((1,))
+    assert 'epoch' in statistics, 'Epoch number should be included in checkpoints. '
 
-    result = {
-        'loss1' : loss1,
-        'loss2' : loss2,
-        'loss3' : loss3,
-    }
+    plt.figure()
 
-    graph_loss(result)
+    x = statistics['epoch']
+    for k, v in statistics.items():
+        if k == 'epoch':
+            continue
+        
+        plt.plot(x, v, label=k)
+    
+    plt.title(f'{y_axis} VS {x_axis}')
+    plt.xlabel(x_axis)
+    plt.ylabel(y_axis)
+    plt.grid()
+    plt.legend()
+    
+    plt.show()
+
+
+if __name__ == '__main__':
+    graph_from_checkpoint(r'Checkpoints')
