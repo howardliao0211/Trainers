@@ -39,15 +39,14 @@ class BaseTrainer(ABC):
 
             print(f'============ Epoch {epoch_idx}/{epochs + trained_epochs} ============')
             
-            if self.train_loop is not None:
-                train_state = self.train_loop()
-                for state, value in train_state.items():
-                    statistic[state].append(value)
-            
-            if self.test_loop is not None:
-                test_state = self.test_loop()
-                for state, value in test_state.items():
-                    statistic[state].append(value)
+            train_state = self.train_loop()
+            for state, value in train_state.items():
+                statistic[state].append(value)
+            train_state = {}
+
+            test_state = self.test_loop()
+            for state, value in test_state.items():
+                statistic[state].append(value)
             
             if save_check_point:
                 # Get current epoch's statistic
@@ -68,7 +67,7 @@ class BaseTrainer(ABC):
                 torch.save(checkpoint_dict, checkpoint_path)
 
         if graph:
-            graph_loss(statistic)
+            graph_loss(statistic, name=f'{self.name}')
 
     @abstractmethod
     def train_loop(self) -> dict:
@@ -105,7 +104,7 @@ class Trainer(BaseTrainer):
 
     record_loss_batch: int = 10
 
-    def train_loop(self) -> list[float]:
+    def train_loop(self) -> dict:
         self.model.train()
         
         train_loss = 0.0
@@ -131,7 +130,7 @@ class Trainer(BaseTrainer):
         train_loss /= len(self.train_loader.dataset)
         return {'Train Loss': train_loss}
     
-    def test_loop(self) -> float:
+    def test_loop(self) -> dict:
         self.model.eval()
 
         test_loss = 0.0
