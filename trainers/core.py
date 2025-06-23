@@ -22,7 +22,7 @@ class BaseTrainer(ABC):
     loss_fn: Callable
     train_loader: DataLoader
     test_loader: DataLoader
-    device: torch.device = torch.device('cpu')
+    device: torch.device
 
     def fit(self, epochs: int, trained_epochs: int=0, graph: bool=False, save_check_point: bool=False) -> None:
         """
