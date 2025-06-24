@@ -67,7 +67,7 @@ class BaseTrainer(ABC):
                 torch.save(checkpoint_dict, checkpoint_path)
 
         if graph:
-            graph_loss(statistic, name=f'{self.name}')
+            graph_loss(statistic, title=f'{self.name}')
 
     @abstractmethod
     def train_loop(self) -> dict:

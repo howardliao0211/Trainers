@@ -3,7 +3,7 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
-import trainers
+from trainers.core import Trainer
 
 if __name__ == '__main__':
     class LinearModel(nn.Module):
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     model = LinearModel(class_num=10).to(device)
     optimizer = SGD(model.parameters(), lr=0.01)
     loss_fn = nn.CrossEntropyLoss()
-    trainer = trainers.Trainer(
+    trainer = Trainer(
         name='Example',
         model=model,
         optimizer=optimizer,
@@ -48,4 +48,4 @@ if __name__ == '__main__':
         device=device
     )
 
-    trainer.fit(epochs=10, graph=True)
+    trainer.fit(epochs=5, graph=True)

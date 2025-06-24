@@ -5,13 +5,13 @@ import matplotlib.pyplot as plt
 import pathlib
 import numpy as np
 
-def graph_loss(result: dict[str, list[float]], name:str='', x_axis: str='Epochs', y_axis: str='Statistic') -> None:
+def graph_loss(result: dict[str, list[float]], title:str='', x_axis: str='Epochs', y_axis: str='Statistic') -> None:
     plt.figure()
     
-    for name, data in result.items():
-        plt.plot(data, label=name)
+    for label_name, data in result.items():
+        plt.plot(data, label=label_name)
     
-    plt.title(f'{name} {y_axis} VS {x_axis}')
+    plt.title(f'{title} {y_axis} VS {x_axis}')
 
     plt.xlabel(x_axis)
     plt.ylabel(y_axis)
