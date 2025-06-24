@@ -125,9 +125,9 @@ class Trainer(BaseTrainer):
             if batch % self.record_loss_batch == 0:
                 train_loss += loss.item()
                 index = (batch + 1) * self.train_loader.batch_size
-                print(f'    loss: {loss.item(): 5f} ----- {index: 6d} / {len(self.train_loader.dataset)}')
+                print(f'    loss: {loss.item(): 5f} ----- {index: 6d} / {len(self.train_loader)}')
         
-        train_loss /= len(self.train_loader.dataset)
+        train_loss /= len(self.train_loader)
         return {'Train Loss': train_loss}
     
     def test_loop(self) -> dict:
@@ -142,7 +142,7 @@ class Trainer(BaseTrainer):
                 loss = self.loss_fn(predict, labels).item()
                 test_loss += loss
 
-        test_loss /= len(self.test_loader.dataset)
+        test_loss /= len(self.test_loader)
         print(f'Test Loss: {test_loss}')
         return {'Test Loss': test_loss}
 
