@@ -4,7 +4,7 @@ from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from typing import Callable
-from .utils import graph_loss
+from .utils import graph_loss_animation_start, graph_loss_animation_update, graph_loss_animation_end
 from collections import defaultdict
 import torch
 import pathlib
@@ -31,7 +31,9 @@ class BaseTrainer(ABC):
         Args:
             epochs (int): Number of training epochs.
         """
-        statistic = defaultdict(list)
+
+        if graph:
+            fig, ax, lines, x_data, y_data = None, None, None, None, None
 
         print("Training the model...")
         for epoch in range(epochs):
@@ -40,20 +42,12 @@ class BaseTrainer(ABC):
             print(f'============ Epoch {epoch_idx}/{epochs + trained_epochs} ============')
             
             train_state = self.train_loop()
-            for state, value in train_state.items():
-                statistic[state].append(value)
-            train_state = {}
-
             test_state = self.test_loop()
-            for state, value in test_state.items():
-                statistic[state].append(value)
-            
-            if save_check_point:
-                # Get current epoch's statistic
-                current_statistic = {}
-                current_statistic.update(train_state)
-                current_statistic.update(test_state)
+            current_statistic = {}
+            current_statistic.update(train_state)
+            current_statistic.update(test_state)
 
+            if save_check_point:
                 # Create Checkpoint Directory
                 date = datetime.datetime.today().strftime("%Y%m%d")
                 time = datetime.datetime.now().strftime("%H%M%S")
@@ -66,8 +60,18 @@ class BaseTrainer(ABC):
                 checkpoint_dict = self.get_checkpoint_dict(self.model, self.optimizer, epoch_idx, current_statistic)
                 torch.save(checkpoint_dict, checkpoint_path)
 
+            if graph:
+                if epoch == 0:
+                    fig, ax, lines, x_data, y_data = graph_loss_animation_start(
+                        stat_names = list(current_statistic.keys()),
+                        title=f'{self.name}'
+                    )
+
+                graph_loss_animation_update(epoch, current_statistic, ax, lines, x_data, y_data)
+            
         if graph:
-            graph_loss(statistic, title=f'{self.name}')
+            graph_loss_animation_end()
+
 
     @abstractmethod
     def train_loop(self) -> dict:
