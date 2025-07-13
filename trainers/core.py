@@ -33,9 +33,6 @@ class BaseTrainer(ABC):
             epochs (int): Number of training epochs.
         """
 
-        if graph:
-            fig, ax, lines, x_data, y_data = None, None, None, None, None
-
         print("Training the model...")
         for epoch in range(epochs):
             epoch_idx = epoch + trained_epochs + 1
