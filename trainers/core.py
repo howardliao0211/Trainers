@@ -4,7 +4,7 @@ from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from typing import Callable
-from .utils import graph_loss_animation_start, graph_loss_animation_update, graph_loss_animation_end
+from .utils import Plottable
 from collections import defaultdict
 import torch
 import pathlib
@@ -23,6 +23,7 @@ class BaseTrainer(ABC):
     train_loader: DataLoader
     test_loader: DataLoader
     device: torch.device
+    plotter: Plottable
 
     def fit(self, epochs: int, trained_epochs: int=0, graph: bool=False, save_check_point: bool=False) -> None:
         """
@@ -61,17 +62,12 @@ class BaseTrainer(ABC):
                 torch.save(checkpoint_dict, checkpoint_path)
 
             if graph:
-                if epoch == 0:
-                    fig, ax, lines, x_data, y_data = graph_loss_animation_start(
-                        stat_names = list(current_statistic.keys()),
-                        title=f'{self.name}'
-                    )
-
-                graph_loss_animation_update(epoch, current_statistic, ax, lines, x_data, y_data)
-            
-        if graph:
-            graph_loss_animation_end()
-
+                self.plotter.plot(
+                    title=self.name,
+                    result=current_statistic,
+                    epoch=epoch,
+                    is_finish=epoch == epochs-1
+                )
 
     @abstractmethod
     def train_loop(self) -> dict:

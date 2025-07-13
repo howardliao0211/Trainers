@@ -4,61 +4,146 @@ import torch
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from functools import partial
+from typing import Protocol
 import pathlib
 import numpy as np
 
-def graph_loss(result: dict[str, list[float]], title:str='', x_axis: str='Epochs', y_axis: str='Statistic') -> None:
-    plt.figure()
+class Plottable(Protocol):
+    """
+    Protocol for plottable object
+    """
+
+    def plot(self, title: str, epoch: int, result: dict[str, list[float]], is_finish: bool, *args, **kwargs) -> None:
+        """
+        Plot a graph of statistic over epoch.
+
+        Args:
+            result (dict[str, list[float]]): a dictionary contend statistic name and its values.
+        """
+        pass
+
+class StaticPlotter:
+
+    def __init__(self, x_axis='Epochs', y_axis='Statistic'):
+        self.x_axis = x_axis
+        self.y_axis = y_axis
+
+        self.is_started = False
     
-    for label_name, data in result.items():
-        plt.plot(data, label=label_name)
+    def plot(self, title: str, epoch: int, result: dict[str, list[float]], is_finish: bool, *args, **kwargs) -> None:
+        
+        if self.is_started is False:
+            self.is_started = True
+            self.x_data, self.y_data = self._plot_start()
+        
+        self._plot_update(
+            epoch=epoch,
+            result=result,
+            x_data=self.x_data,
+            y_data=self.y_data
+        )
+
+        if is_finish:
+            self.is_started = False
+            self._plot_end(
+                title=title,
+                x_data=self.x_data,
+                y_data=self.y_data
+            )
     
-    plt.title(f'{title} {y_axis} VS {x_axis}')
+    def _plot_start(self):
+        x_data = list()
+        y_data = defaultdict(list)
+        return x_data, y_data
 
-    plt.xlabel(x_axis)
-    plt.ylabel(y_axis)
-    plt.grid()
-    plt.legend()
+    def _plot_update(self, epoch: int, result: dict[str, float], x_data: list, y_data: dict[str, list]) -> None:
+        x_data.append(epoch)
+        for name, value in result.items():
+            y_data[name].append(value)
+
+    def _plot_end(self, title: str, x_data: list, y_data: dict) -> None:
+        plt.figure()
+        
+        for label_name, data in y_data.items():
+            plt.plot(x_data, data, label=label_name)
+        
+        plt.title(f'{title} {self.y_axis} VS {self.x_axis}')
+
+        plt.xlabel(self.x_axis)
+        plt.ylabel(self.y_axis)
+        plt.grid()
+        plt.legend()
+        
+        plt.show()
+
+class AnimatePlotter:
+
+    def __init__(self, x_axis='Epochs', y_axis='Statistic'):
+        self.x_axis = x_axis
+        self.y_axis = y_axis
+
+        self.is_started = False
     
-    plt.show()
+    def plot(self, title: str, epoch: int, result: dict[str, list[float]], is_finish: bool, *args, **kwargs) -> None:
+        if self.is_started is False:
+            self.is_started = True
+            self.fig, self.ax, self.lines, self.x_data, self.y_data = self._plot_loss_animation_start(
+                stat_names=list(result.keys()),
+                title=title,
+                x_axis=self.x_axis,
+                y_axis=self.y_axis
+            )
+        
+        self._plot_loss_animation_update(
+            epoch=epoch,
+            new_result=result,
+            ax=self.ax,
+            lines=self.lines,
+            x_data=self.x_data,
+            y_data=self.y_data
+        )
 
-def graph_loss_animation_start(stat_names: list[str], title:str='', x_axis: str='Epochs', y_axis: str='Statistic') -> None:
-    
-    plt.ion()  # interactive mode on
-    fig, ax = plt.subplots()
-    ax.set_title(f'{title} {y_axis} VS {x_axis}')
-    ax.set_xlabel(x_axis)
-    ax.set_ylabel(y_axis)
+        if is_finish:
+            self._plot_loss_animation_end()
+            self.is_started = False
 
-    lines = {}
-    x_data = []
-    y_data = {stat: [] for stat in stat_names}
+    def _plot_loss_animation_start(self, stat_names: list[str], title:str, x_axis: str, y_axis: str) -> None:
+        
+        plt.ion()  # interactive mode on
+        fig, ax = plt.subplots()
+        ax.set_title(f'{title} {y_axis} VS {x_axis}')
+        ax.set_xlabel(x_axis)
+        ax.set_ylabel(y_axis)
 
-    for stat in stat_names:
-        line, = ax.plot([], [], label=stat)
-        lines[stat] = line
+        lines = {}
+        x_data = []
+        y_data = {stat: [] for stat in stat_names}
 
-    ax.legend(loc='upper right')
-    ax.grid()
-    ax.set_xlim(0, 10)     # will grow dynamically
-    ax.set_ylim(0, 1.0)    # adjust as needed
+        for stat in stat_names:
+            line, = ax.plot([], [], label=stat)
+            lines[stat] = line
 
-    return fig, ax, lines, x_data, y_data
+        ax.legend(loc='upper right')
+        ax.grid()
+        ax.set_xlim(0, 10)     # will grow dynamically
+        ax.set_ylim(0, 1.0)    # adjust as needed
 
-def graph_loss_animation_update(epoch, new_result, ax, lines, x_data, y_data):
-    x_data.append(epoch)
-    for stat in new_result:
-        y_data[stat].append(new_result[stat])
-        lines[stat].set_data(x_data, y_data[stat])
+        return fig, ax, lines, x_data, y_data
 
-    ax.relim()        # recompute limits
-    ax.autoscale()    # autoscale for new data
-    plt.draw()
-    plt.pause(0.01)   # allow GUI event loop to update
+    def _plot_loss_animation_update(self, epoch, new_result, ax, lines, x_data, y_data):
+        x_data.append(epoch)
+        for stat in new_result:
+            y_data[stat].append(new_result[stat])
+            lines[stat].set_data(x_data, y_data[stat])
 
-def graph_loss_animation_end():
-    plt.ioff()
-    plt.show()
+        ax.relim()        # recompute limits
+        ax.autoscale()    # autoscale for new data
+        plt.draw()
+        plt.pause(0.01)   # allow GUI event loop to update
+
+    def _plot_loss_animation_end(self):
+        plt.ioff()
+        plt.show()
 
 def load_checkpoint(checkpoint_path: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer, device: torch.device) -> dict:
     print(f'Load Checkpoint: {checkpoint_path}')
@@ -120,7 +205,7 @@ if __name__ == '__main__':
         'I Dont Know'
     ]
 
-    fix, ax, lines, x_data, y_data = graph_loss_animation_start(stat_names)
+    plotter = AnimatePlotter()
 
     for epoch in range(20):
         result = {}
@@ -129,9 +214,10 @@ if __name__ == '__main__':
         result['I Dont Know'] = random.random()
         
         print(f'epoch: {epoch}')
-        graph_loss_animation_update(epoch, result, ax, lines, x_data, y_data)
-        time.sleep(0.5)
-        
-    
-    graph_loss_animation_end()
+        plotter.plot(
+            title='test',
+            epoch=epoch,
+            result=result,
+            is_finish=epoch==19
+        )
     
