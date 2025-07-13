@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
 from trainers.core import Trainer
+from trainers.utils import StaticPlotter
 
 if __name__ == '__main__':
     class LinearModel(nn.Module):
@@ -45,6 +46,7 @@ if __name__ == '__main__':
         loss_fn=loss_fn,
         train_loader=train_loader,
         test_loader=test_loader,
+        plotter=StaticPlotter(),
         device=device
     )
 
