@@ -43,6 +43,7 @@ if __name__ == '__main__':
         name='Example',
         model=model,
         optimizer=optimizer,
+        scheduler=None,
         loss_fn=loss_fn,
         train_loader=train_loader,
         test_loader=test_loader,

@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
-from typing import Callable
+from torch.optim.lr_scheduler import LRScheduler
+from typing import Callable, Optional
 from .utils import Plottable
 from collections import defaultdict
 import torch
@@ -19,6 +20,7 @@ class BaseTrainer(ABC):
     name: str
     model: nn.Module
     optimizer: Optimizer
+    scheduler: Optional[LRScheduler]
     loss_fn: Callable
     train_loader: DataLoader
     test_loader: DataLoader
@@ -55,7 +57,7 @@ class BaseTrainer(ABC):
                 # Create Checkpoint Path
                 checkpoint_name = f'{self.name}_epoch{epoch_idx}_{date}_{time}.pt'
                 checkpoint_path = str(checkpoint_dir/checkpoint_name)
-                checkpoint_dict = self.get_checkpoint_dict(self.model, self.optimizer, epoch_idx, current_statistic)
+                checkpoint_dict = self.get_checkpoint_dict(self.model, self.optimizer, self.scheduler, epoch_idx, current_statistic)
                 torch.save(checkpoint_dict, checkpoint_path)
 
             if graph:
@@ -80,7 +82,7 @@ class BaseTrainer(ABC):
         """
         pass
 
-    def get_checkpoint_dict(self, model: nn.Module, optimizer: Optimizer, epoch: int, statistic: dict) -> dict:
+    def get_checkpoint_dict(self, model: nn.Module, optimizer: Optimizer, scheduler: Optional[LRScheduler], epoch: int, statistic: dict) -> dict:
         """
         Get checkpoint.
         """
@@ -90,6 +92,10 @@ class BaseTrainer(ABC):
             'optimizer_state_dict': optimizer.state_dict(),
         }
         checkpoint_dict.update(statistic)
+
+        if scheduler is not None:
+            checkpoint_dict['scheduler_state_dict'] = scheduler.state_dict()
+
         return checkpoint_dict
 
 

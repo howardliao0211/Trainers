@@ -1,10 +1,10 @@
 from typing import Any
 from collections import defaultdict
-import torch
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from functools import partial
-from typing import Protocol
+from typing import Protocol, Optional
+import torch
 import pathlib
 import numpy as np
 
@@ -145,7 +145,7 @@ class AnimatePlotter:
         plt.ioff()
         plt.show()
 
-def load_checkpoint(checkpoint_path: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer, device: torch.device) -> dict:
+def load_checkpoint(checkpoint_path: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer, scheduler: Optional[torch.optim.lr_scheduler.LRScheduler], device: torch.device) -> dict:
     print(f'Load Checkpoint: {checkpoint_path}')
 
     checkpoint: dict[str, Any] = torch.load(checkpoint_path, map_location=device)
@@ -153,10 +153,13 @@ def load_checkpoint(checkpoint_path: str, model: torch.nn.Module, optimizer: tor
 
     for k, v in checkpoint.items():
         if k == 'model_state_dict':
-            model.load_state_dict(checkpoint['model_state_dict'])
+            model.load_state_dict(checkpoint[k])
 
         elif k == 'optimizer_state_dict':
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            optimizer.load_state_dict(checkpoint[k])
+        
+        elif k == 'scheduler_state_dict' and scheduler is not None:
+            scheduler.load_state_dict(checkpoint[k])
 
         else:
             print(f'{k}: {v}')
